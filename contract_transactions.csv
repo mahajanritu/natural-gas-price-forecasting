@@ -1,0 +1,5 @@
+Date,Action,Price,Volume,Cash Flow
+2024-01-31,Injection,10,1000,-10500.0
+2024-02-29,Injection,11,1000,-11500.0
+2024-07-31,Withdrawal,16,1000,16000.0
+2024-08-31,Withdrawal,17,1000,17000.0

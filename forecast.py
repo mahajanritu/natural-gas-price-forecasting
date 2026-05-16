@@ -1,313 +1,467 @@
-# ============================================
-# NATURAL GAS PRICE FORECASTING PROJECT
-# ============================================
-# Author : Ritu Mahajan
-# Project : Natural Gas Price Prediction
-# ============================================
+# =========================================================
+# NATURAL GAS STORAGE CONTRACT PRICING DASHBOARD
+# =========================================================
+# Author  : Ritu Mahajan
+# Project : Natural Gas Analytics & Storage Pricing
+# =========================================================
 
-# -----------------------------
+# =========================================================
 # IMPORT LIBRARIES
-# -----------------------------
+# =========================================================
 
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.interpolate import interp1d
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import os
 
-# -----------------------------
-# CREATE REQUIRED FOLDERS
-# -----------------------------
+# =========================================================
+# CREATE IMAGES FOLDER
+# =========================================================
 
 os.makedirs("images", exist_ok=True)
 
-# -----------------------------
-# LOAD DATA
-# -----------------------------
+# =========================================================
+# PRICE DATA
+# =========================================================
 
-try:
-    df = pd.read_csv("data/Nat_Gas.csv")
+price_data = {
+    "2024-01-31": 10,
+    "2024-02-29": 11,
+    "2024-03-31": 12,
+    "2024-04-30": 13,
+    "2024-05-31": 14,
+    "2024-06-30": 15,
+    "2024-07-31": 16,
+    "2024-08-31": 17,
+}
 
-except FileNotFoundError:
-    print("ERROR: CSV file not found.")
-    print("Make sure file exists at:")
-    print("data/Nat_Gas.csv")
-    exit()
+# =========================================================
+# CONVERT DATA TO DATAFRAME
+# =========================================================
 
-# -----------------------------
-# DATA CLEANING
-# -----------------------------
-
-# Convert date column
-df['Dates'] = pd.to_datetime(df['Dates'])
-
-# Sort values by date
-df = df.sort_values('Dates')
-
-# Remove missing values
-df = df.dropna()
-
-# Reset index
-df = df.reset_index(drop=True)
-
-# -----------------------------
-# DISPLAY DATA
-# -----------------------------
-
-print("\n===================================")
-print("NATURAL GAS DATASET")
-print("===================================\n")
-
-print(df.head())
-
-print("\n===================================")
-print("DATASET INFORMATION")
-print("===================================\n")
-
-print(df.info())
-
-# -----------------------------
-# FEATURE ENGINEERING
-# -----------------------------
-
-# Convert dates into numeric values
-df['Days'] = (
-    df['Dates'] - df['Dates'].min()
-).dt.days
-
-# Input and output
-X = df[['Days']]
-y = df['Prices']
-
-# -----------------------------
-# TRAIN MACHINE LEARNING MODEL
-# -----------------------------
-
-model = LinearRegression()
-
-model.fit(X, y)
-
-# Predictions on training data
-y_pred = model.predict(X)
-
-# -----------------------------
-# MODEL EVALUATION
-# -----------------------------
-
-mse = mean_squared_error(y, y_pred)
-
-r2 = r2_score(y, y_pred)
-
-print("\n===================================")
-print("MODEL PERFORMANCE")
-print("===================================\n")
-
-print(f"Mean Squared Error : {mse:.2f}")
-
-print(f"R2 Score           : {r2:.2f}")
-
-# -----------------------------
-# INTERPOLATION MODEL
-# -----------------------------
-
-interp_function = interp1d(
-    df['Days'],
-    df['Prices'],
-    kind='linear',
-    fill_value='extrapolate'
+df = pd.DataFrame(
+    list(price_data.items()),
+    columns=["Date", "Price"]
 )
 
-# -----------------------------
-# PRICE ESTIMATION FUNCTION
-# -----------------------------
+df["Date"] = pd.to_datetime(df["Date"])
 
-def estimate_price(input_date):
+# =========================================================
+# STORAGE CONTRACT PRICING FUNCTION
+# =========================================================
 
-    """
-    Estimate natural gas price
-    for any given date
-    """
+def price_storage_contract(
+    injection_dates,
+    withdrawal_dates,
+    injection_rate,
+    withdrawal_rate,
+    max_storage_volume,
+    storage_cost_per_unit
+):
 
-    try:
+    total_profit = 0
+    current_storage = 0
 
-        # Convert input date
-        input_date = pd.to_datetime(input_date)
+    total_injection_cost = 0
+    total_storage_cost = 0
+    total_revenue = 0
 
-    except:
-        return "Invalid date format"
+    transaction_history = []
 
-    # Convert date into numeric value
-    days = (
-        input_date - df['Dates'].min()
-    ).days
+    print("\n================================================")
+    print("NATURAL GAS STORAGE CONTRACT VALUATION")
+    print("================================================\n")
 
-    # Historical estimation
-    if input_date <= df['Dates'].max():
+    # =====================================================
+    # INJECTION OPERATIONS
+    # =====================================================
 
-        price = interp_function(days)
+    for date in injection_dates:
 
-    # Future prediction
-    else:
+        buy_price = price_data[date]
 
-        price = model.predict([[days]])[0]
+        injected_volume = min(
+            injection_rate,
+            max_storage_volume - current_storage
+        )
 
-    return round(float(price), 2)
+        injection_cost = (
+            buy_price * injected_volume
+        )
 
-# -----------------------------
-# USER INPUT SECTION
-# -----------------------------
+        storage_cost = (
+            storage_cost_per_unit * injected_volume
+        )
 
-print("\n===================================")
-print("PRICE ESTIMATION")
-print("===================================\n")
+        total_cost = (
+            injection_cost + storage_cost
+        )
 
-sample_dates = [
-    "2022-06-15",
-    "2023-12-25",
-    "2025-03-31"
-]
+        total_profit -= total_cost
 
-for date in sample_dates:
+        total_injection_cost += injection_cost
+        total_storage_cost += storage_cost
 
-    estimated_price = estimate_price(date)
+        current_storage += injected_volume
 
-    print(f"{date}  -->  ${estimated_price}")
+        transaction_history.append({
+            "Date": date,
+            "Action": "Injection",
+            "Price": buy_price,
+            "Volume": injected_volume,
+            "Cash Flow": -total_cost
+        })
 
-# -----------------------------
-# HISTORICAL PRICE GRAPH
-# -----------------------------
+        print(f"Injected Gas on : {date}")
+        print(f"Purchase Price  : ${buy_price}")
+        print(f"Volume Injected : {injected_volume}")
+        print(f"Storage Cost    : ${storage_cost}")
+        print(f"Current Storage : {current_storage}")
+        print()
 
-plt.figure(figsize=(14, 6))
+    # =====================================================
+    # WITHDRAWAL OPERATIONS
+    # =====================================================
 
-plt.plot(
-    df['Dates'],
-    df['Prices'],
-    marker='o',
-    linewidth=2
-)
+    for date in withdrawal_dates:
 
-plt.title(
-    "Historical Natural Gas Prices",
-    fontsize=16
-)
+        sell_price = price_data[date]
 
-plt.xlabel("Date", fontsize=12)
+        withdrawn_volume = min(
+            withdrawal_rate,
+            current_storage
+        )
 
-plt.ylabel("Price", fontsize=12)
+        revenue = (
+            sell_price * withdrawn_volume
+        )
 
-plt.grid(True)
+        total_profit += revenue
 
-# Save graph
-plt.savefig(
-    "images/historical_prices.png",
-    dpi=300,
-    bbox_inches='tight'
-)
+        total_revenue += revenue
 
-plt.show()
+        current_storage -= withdrawn_volume
 
-# -----------------------------
-# FUTURE FORECASTING
-# -----------------------------
+        transaction_history.append({
+            "Date": date,
+            "Action": "Withdrawal",
+            "Price": sell_price,
+            "Volume": withdrawn_volume,
+            "Cash Flow": revenue
+        })
 
-future_dates = pd.date_range(
-    start=df['Dates'].max(),
-    periods=12,
-    freq='M'
-)
+        print(f"Withdrawn Gas on : {date}")
+        print(f"Selling Price    : ${sell_price}")
+        print(f"Volume Withdrawn : {withdrawn_volume}")
+        print(f"Revenue Earned   : ${revenue}")
+        print(f"Remaining Storage: {current_storage}")
+        print()
 
-future_days = (
-    future_dates - df['Dates'].min()
-).days.values.reshape(-1, 1)
+    # =====================================================
+    # FINAL RESULTS
+    # =====================================================
 
-future_prices = model.predict(
-    future_days
-)
+    print("================================================")
+    print("FINAL CONTRACT VALUATION")
+    print("================================================\n")
 
-# -----------------------------
-# FORECAST GRAPH
-# -----------------------------
+    print(f"Final Profit/Loss : ${round(total_profit, 2)}")
 
-plt.figure(figsize=(14, 6))
+    # =====================================================
+    # SAVE TRANSACTION HISTORY
+    # =====================================================
 
-# Historical Data
-plt.plot(
-    df['Dates'],
-    df['Prices'],
-    label='Historical Prices',
-    linewidth=2
-)
+    history_df = pd.DataFrame(transaction_history)
 
-# Forecast Data
-plt.plot(
-    future_dates,
-    future_prices,
-    linestyle='dashed',
-    marker='o',
-    linewidth=2,
-    label='Forecast Prices'
-)
-
-plt.title(
-    "Natural Gas Price Forecast",
-    fontsize=16
-)
-
-plt.xlabel("Date", fontsize=12)
-
-plt.ylabel("Price", fontsize=12)
-
-plt.legend()
-
-plt.grid(True)
-
-# Save graph
-plt.savefig(
-    "images/forecast_prices.png",
-    dpi=300,
-    bbox_inches='tight'
-)
-
-plt.show()
-
-# -----------------------------
-# SAVE FUTURE FORECAST CSV
-# -----------------------------
-
-forecast_df = pd.DataFrame({
-    "Date": future_dates,
-    "Predicted_Price": np.round(
-        future_prices,
-        2
+    history_df.to_csv(
+        "contract_transactions.csv",
+        index=False
     )
-})
 
-forecast_df.to_csv(
-    "future_forecast.csv",
-    index=False
+    # =====================================================
+    # CREATE PROFESSIONAL DASHBOARD
+    # =====================================================
+
+    fig = make_subplots(
+
+        rows=1,
+        cols=2,
+
+        subplot_titles=(
+            "Natural Gas Price Trend",
+            "Financial Breakdown"
+        ),
+
+        specs=[
+            [{"type": "scatter"}, {"type": "pie"}]
+        ]
+    )
+
+    # =====================================================
+    # MAIN PRICE TREND LINE
+    # =====================================================
+
+    fig.add_trace(
+
+        go.Scatter(
+
+            x=df["Date"],
+            y=df["Price"],
+
+            mode='lines+markers',
+
+            name='Gas Prices',
+
+            line=dict(width=4),
+
+            marker=dict(size=10),
+
+            hovertemplate=
+            "<b>Date:</b> %{x}<br>" +
+            "<b>Price:</b> $%{y}<extra></extra>"
+        ),
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # INJECTION POINTS
+    # =====================================================
+
+    injection_x = [
+        pd.to_datetime(date)
+        for date in injection_dates
+    ]
+
+    injection_y = [
+        price_data[date]
+        for date in injection_dates
+    ]
+
+    fig.add_trace(
+
+        go.Scatter(
+
+            x=injection_x,
+            y=injection_y,
+
+            mode='markers+text',
+
+            text=["BUY"] * len(injection_x),
+
+            textposition="top center",
+
+            name='Injection',
+
+            marker=dict(
+                size=18,
+                symbol='triangle-up'
+            ),
+
+            hovertemplate=
+            "<b>Injection:</b><br>" +
+            "Date: %{x}<br>" +
+            "Price: $%{y}<extra></extra>"
+        ),
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # WITHDRAWAL POINTS
+    # =====================================================
+
+    withdrawal_x = [
+        pd.to_datetime(date)
+        for date in withdrawal_dates
+    ]
+
+    withdrawal_y = [
+        price_data[date]
+        for date in withdrawal_dates
+    ]
+
+    fig.add_trace(
+
+        go.Scatter(
+
+            x=withdrawal_x,
+            y=withdrawal_y,
+
+            mode='markers+text',
+
+            text=["SELL"] * len(withdrawal_x),
+
+            textposition="bottom center",
+
+            name='Withdrawal',
+
+            marker=dict(
+                size=18,
+                symbol='triangle-down'
+            ),
+
+            hovertemplate=
+            "<b>Withdrawal:</b><br>" +
+            "Date: %{x}<br>" +
+            "Price: $%{y}<extra></extra>"
+        ),
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # PIE CHART
+    # =====================================================
+
+    fig.add_trace(
+
+        go.Pie(
+
+            labels=[
+                "Revenue",
+                "Injection Cost",
+                "Storage Cost"
+            ],
+
+            values=[
+                total_revenue,
+                total_injection_cost,
+                total_storage_cost
+            ],
+
+            hole=0.45,
+
+            textinfo='label+percent',
+
+            hovertemplate=
+            "<b>%{label}</b><br>" +
+            "Value: $%{value}<extra></extra>"
+        ),
+
+        row=1,
+        col=2
+    )
+
+    # =====================================================
+    # DASHBOARD LAYOUT
+    # =====================================================
+
+    fig.update_layout(
+
+        title={
+            'text':
+            "Natural Gas Storage Contract Analysis Dashboard",
+            'x': 0.5
+        },
+
+        template="plotly_dark",
+
+        height=700,
+
+        width=1400,
+
+        font=dict(size=13),
+
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+
+        annotations=[
+
+            dict(
+
+                text=
+                f"<b>Total Profit:</b> ${round(total_profit, 2)}",
+
+                showarrow=False,
+
+                x=0.5,
+                y=-0.12,
+
+                xref="paper",
+                yref="paper",
+
+                font=dict(
+                    size=18
+                )
+            )
+        ]
+    )
+
+    # =====================================================
+    # SAVE DASHBOARD
+    # =====================================================
+
+    fig.write_html(
+        "images/storage_dashboard.html"
+    )
+
+    # =====================================================
+    # SHOW DASHBOARD
+    # =====================================================
+
+    fig.show()
+
+    # =====================================================
+    # RETURN FINAL PROFIT
+    # =====================================================
+
+    return round(total_profit, 2)
+
+# =========================================================
+# SAMPLE TEST CASE
+# =========================================================
+
+contract_value = price_storage_contract(
+
+    injection_dates=[
+        "2024-01-31",
+        "2024-02-29"
+    ],
+
+    withdrawal_dates=[
+        "2024-07-31",
+        "2024-08-31"
+    ],
+
+    injection_rate=1000,
+
+    withdrawal_rate=1000,
+
+    max_storage_volume=2000,
+
+    storage_cost_per_unit=0.5
 )
 
-# -----------------------------
+# =========================================================
 # FINAL OUTPUT
-# -----------------------------
+# =========================================================
 
-print("\n===================================")
+print("\n================================================")
 print("PROJECT COMPLETED SUCCESSFULLY")
-print("===================================\n")
+print("================================================\n")
 
-print("Generated Files:")
+print(f"Calculated Contract Value : ${contract_value}")
 
-print("1. images/historical_prices.png")
+print("\nGenerated Files:")
 
-print("2. images/forecast_prices.png")
+print("1. contract_transactions.csv")
+print("2. images/storage_dashboard.html")
 
-print("3. future_forecast.csv")
-
-print("\nModel is ready for:")
-print("- Historical price estimation")
-print("- Future forecasting")
-print("- Data visualization")
-
-print("\nThank You!")
+print("\nSystem Features:")
+print("- Interactive professional dashboard")
+print("- Dynamic hover values")
+print("- BUY/SELL indicators")
+print("- Financial pie chart")
+print("- Cash flow analysis")
+print("- Storage tracking")
+print("- HTML interactive visualization")
+print("- CSV export")
